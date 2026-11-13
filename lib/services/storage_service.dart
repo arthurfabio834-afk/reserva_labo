@@ -7,6 +7,8 @@ class StorageService {
   static const String _keyLaboratorios = 'laboratorios_json';
   static const String _keyReservas = 'reservas_json';
   static const String _keyHorarios = 'horarios_matriz_json';
+  static const String _keyModoEscuro = 'acessibilidade_modo_escuro';
+  static const String _keyEscalaFonte = 'acessibilidade_escala_fonte';
 
   Future<void> salvarLaboratorios(List<Laboratorio> laboratorios) async {
     final prefs = await SharedPreferences.getInstance();
@@ -44,5 +46,22 @@ class StorageService {
   Future<List<String>> carregarHorarios() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList(_keyHorarios) ?? [];
+  }
+
+  Future<void> salvarAcessibilidade({
+    required bool modoEscuro,
+    required double escalaFonte,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyModoEscuro, modoEscuro);
+    await prefs.setDouble(_keyEscalaFonte, escalaFonte);
+  }
+
+  Future<({bool modoEscuro, double escalaFonte})> carregarAcessibilidade() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (
+      modoEscuro: prefs.getBool(_keyModoEscuro) ?? false,
+      escalaFonte: prefs.getDouble(_keyEscalaFonte) ?? 1.0,
+    );
   }
 }

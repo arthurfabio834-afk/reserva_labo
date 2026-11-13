@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../main.dart';
 import '../models/laboratorio.dart';
 import '../services/reserva_service.dart';
 import 'form_laboratorio_screen.dart';
@@ -143,6 +144,11 @@ class _ListaLaboratoriosScreenState extends State<ListaLaboratoriosScreen> {
               onPressed: () => _abrirFormLaboratorio(),
             ),
           IconButton(
+            icon: const Icon(Icons.accessibility_new),
+            tooltip: 'Acessibilidade (Tema e Fonte)',
+            onPressed: () => abrirMenuAcessibilidade(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Trocar perfil',
             onPressed: _sair,
@@ -153,7 +159,6 @@ class _ListaLaboratoriosScreenState extends State<ListaLaboratoriosScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Barra de filtro por recurso (Desafio Extra)
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding:

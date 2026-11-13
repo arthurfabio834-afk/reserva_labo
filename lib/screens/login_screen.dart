@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../main.dart';
 import 'lista_laboratorios_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -54,6 +55,17 @@ class _LoginScreenState extends State<LoginScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.accessibility_new),
+            tooltip: 'Acessibilidade (Tema e Fonte)',
+            onPressed: () => abrirMenuAcessibilidade(context),
+          ),
+        ],
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),

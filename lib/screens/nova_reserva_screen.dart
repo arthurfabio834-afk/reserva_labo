@@ -10,15 +10,6 @@ class NovaReservaScreen extends StatefulWidget {
   final DiaSemana? diaInicial;
   final String? horarioInicial;
 
-  static const List<String> horariosDisponiveis = [
-    '07:30 - 09:10',
-    '09:30 - 11:10',
-    '13:30 - 15:10',
-    '15:30 - 17:10',
-    '19:00 - 20:40',
-    '20:50 - 22:30',
-  ];
-
   const NovaReservaScreen({
     super.key,
     required this.service,
@@ -48,7 +39,7 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
         widget.laboratorioInicial ?? widget.service.laboratorios.first;
     _diaSelecionado = widget.diaInicial ?? DiaSemana.segunda;
     _horarioSelecionado =
-        widget.horarioInicial ?? NovaReservaScreen.horariosDisponiveis.first;
+        widget.horarioInicial ?? widget.service.horarios.first;
   }
 
   @override
@@ -79,7 +70,8 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
     if (!sucesso) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Conflito: este laboratório já está reservado neste dia e horário!'),
+          content: Text(
+              'Conflito: este laboratório já está reservado neste dia e horário!'),
           backgroundColor: Colors.red,
         ),
       );
@@ -88,7 +80,7 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Reserva registrada com sucesso!'),
+        content: Text('Aula agendada na matriz!'),
         backgroundColor: Colors.green,
       ),
     );
@@ -97,12 +89,9 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final diasUteis =
-        DiaSemana.values.where((d) => d != DiaSemana.sabado).toList();
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nova Reserva'),
+        title: const Text('Agendar Horário'),
         centerTitle: true,
       ),
       body: Padding(
@@ -134,7 +123,7 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
                   labelText: 'Dia da Semana',
                   border: OutlineInputBorder(),
                 ),
-                items: diasUteis.map((dia) {
+                items: DiaSemana.values.map((dia) {
                   return DropdownMenuItem(
                     value: dia,
                     child: Text(dia.label),
@@ -148,10 +137,10 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
               DropdownButtonFormField<String>(
                 initialValue: _horarioSelecionado,
                 decoration: const InputDecoration(
-                  labelText: 'Horário',
+                  labelText: 'Faixa de Horário',
                   border: OutlineInputBorder(),
                 ),
-                items: NovaReservaScreen.horariosDisponiveis.map((h) {
+                items: widget.service.horarios.map((h) {
                   return DropdownMenuItem(
                     value: h,
                     child: Text(h),
@@ -185,18 +174,18 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
               TextFormField(
                 controller: _motivoController,
                 decoration: const InputDecoration(
-                  labelText: 'Motivo / Atividade',
+                  labelText: 'Atividade / Observação',
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 2,
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Informe o motivo' : null,
+                    (v == null || v.trim().isEmpty) ? 'Informe a atividade' : null,
               ),
               const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: _salvar,
                 icon: const Icon(Icons.check),
-                label: const Text('Confirmar Reserva'),
+                label: const Text('Salvar na Matriz'),
               ),
             ],
           ),

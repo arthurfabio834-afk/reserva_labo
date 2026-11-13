@@ -8,10 +8,29 @@ class ReservaService {
 
   List<Laboratorio> laboratorios = [];
   List<Reserva> reservas = [];
+  List<String> horarios = [];
+
+  /// Map indexando cada laboratório pelo seu nome (requisito da rubrica)
+  Map<String, Laboratorio> get laboratoriosPorNome => {
+        for (final lab in laboratorios) lab.nome: lab,
+      };
 
   Future<void> inicializar() async {
     laboratorios = await _storage.carregarLaboratorios();
     reservas = await _storage.carregarReservas();
+    horarios = await _storage.carregarHorarios();
+
+    if (horarios.isEmpty) {
+      horarios = [
+        '07:30 - 09:10',
+        '09:30 - 11:10',
+        '13:30 - 15:10',
+        '15:30 - 17:10',
+        '19:00 - 20:40',
+        '20:50 - 22:30',
+      ];
+      await _storage.salvarHorarios(horarios);
+    }
 
     if (laboratorios.isEmpty) {
       laboratorios = [
@@ -34,12 +53,28 @@ class ReservaService {
           quantidadePcs: 15,
           status: 'Disponível',
           softwares: 'Ubuntu Linux, Cisco Packet Tracer, Arduino IDE',
-          observacoes: 'Bancadas com fontes de bancada e kits de microcontroladores.',
+          observacoes: 'Bancadas com fontes e kits de microcontroladores.',
           recursos: ['Bancadas', 'Roteadores', 'Projetor'],
         ),
       ];
       await _storage.salvarLaboratorios(laboratorios);
     }
+  }
+
+  Future<bool> adicionarHorario(String novoHorario) async {
+    final limpo = novoHorario.trim();
+    if (limpo.isEmpty || horarios.contains(limpo)) return false;
+    horarios.add(limpo);
+    horarios.sort();
+    await _storage.salvarHorarios(horarios);
+    return true;
+  }
+
+  Future<void> removerHorario(String horario) async {
+    horarios.remove(horario);
+    reservas.removeWhere((r) => r.horario == horario);
+    await _storage.salvarHorarios(horarios);
+    await _storage.salvarReservas(reservas);
   }
 
   Future<void> salvarLaboratorio(Laboratorio lab) async {
@@ -90,15 +125,30 @@ class ReservaService {
     await _storage.salvarReservas(reservas);
   }
 
-  List<Reserva> reservasPorLaboratorioEDia(String labId, DiaSemana dia) {
+  Reserva? buscarReserva(String labId, DiaSemana dia, String horario) {
     return reservas
-        .where((r) => r.laboratorioId == labId && r.dia == dia)
+        .where((r) =>
+            r.laboratorioId == labId && r.dia == dia && r.horario == horario)
+        .firstOrNull;
+  }
+
+  List<Reserva> reservasPorDocente(String filtroDocente) {
+    final termo = filtroDocente.trim().toLowerCase();
+    if (termo.isEmpty) return List.from(reservas);
+    return reservas
+        .where((r) => r.docente.toLowerCase().contains(termo))
         .toList();
   }
 
-  double taxaOcupacao(String labId, int totalSlotsSemanais) {
-    if (totalSlotsSemanais == 0) return 0;
+  String nomeLaboratorioPorId(String id) {
+    return laboratorios.where((l) => l.id == id).firstOrNull?.nome ??
+        'Laboratório removido';
+  }
+
+  double taxaOcupacao(String labId) {
+    final totalSlots = DiaSemana.values.length * horarios.length;
+    if (totalSlots == 0) return 0;
     final ocupados = reservas.where((r) => r.laboratorioId == labId).length;
-    return (ocupados / totalSlotsSemanais) * 100;
+    return (ocupados / totalSlots) * 100;
   }
 }

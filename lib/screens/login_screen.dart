@@ -13,7 +13,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _modoProfessor = false;
   bool _obscureText = true;
 
-  // Senha padrão para demonstração do perfil docente
   static const String _senhaDocentePadrao = 'ifpa2026';
 
   @override
@@ -111,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
                     if (!_modoProfessor) ...[
                       const Text(
-                        'Acesso livre para consulta do calendário semanal (Segunda a Sexta) e disponibilidade dos laboratórios.',
+                        'Acesso livre para consulta dos laboratórios e do calendário semanal (Segunda a Domingo).',
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 20),
@@ -120,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: FilledButton.icon(
                           onPressed: _entrarComoAluno,
                           icon: const Icon(Icons.visibility_outlined),
-                          label: const Text('Visualizar Calendário'),
+                          label: const Text('Entrar como Aluno'),
                         ),
                       ),
                     ] else ...[

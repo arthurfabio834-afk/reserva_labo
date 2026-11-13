@@ -6,6 +6,7 @@ import '../models/reserva.dart';
 class StorageService {
   static const String _keyLaboratorios = 'laboratorios_json';
   static const String _keyReservas = 'reservas_json';
+  static const String _keyHorarios = 'horarios_matriz_json';
 
   Future<void> salvarLaboratorios(List<Laboratorio> laboratorios) async {
     final prefs = await SharedPreferences.getInstance();
@@ -33,5 +34,15 @@ class StorageService {
     if (raw == null || raw.isEmpty) return [];
     final List<dynamic> decoded = jsonDecode(raw);
     return decoded.map((item) => Reserva.fromJson(item)).toList();
+  }
+
+  Future<void> salvarHorarios(List<String> horarios) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_keyHorarios, horarios);
+  }
+
+  Future<List<String>> carregarHorarios() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_keyHorarios) ?? [];
   }
 }

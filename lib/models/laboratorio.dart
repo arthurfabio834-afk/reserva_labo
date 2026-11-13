@@ -4,7 +4,7 @@ class Laboratorio {
   final String bloco;
   final int capacidade;
   final int quantidadePcs;
-  final String status; // 'Disponível', 'Em Manutenção', 'Restrito'
+  final String status;
   final String softwares;
   final String observacoes;
   final List<String> recursos;

@@ -35,7 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_senhaController.text.trim() != _senhaDocentePadrao) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Senha docente incorreta! (Dica: ifpa2026)'),
+          content: Text('Senha docente incorreta!'),
           backgroundColor: Colors.red,
         ),
       );
@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Laboratórios IFPA',
+                      'ReservaLab IFPA',
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),

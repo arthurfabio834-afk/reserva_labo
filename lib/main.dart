@@ -1,6 +1,39 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'services/storage_service.dart';
+
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
+void notificarNovaAulaGlobal(String mensagem) {
+  SystemSound.play(SystemSoundType.alert);
+  rootScaffoldMessengerKey.currentState?.clearSnackBars();
+  rootScaffoldMessengerKey.currentState?.showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 6),
+      backgroundColor: const Color.fromARGB(255, 29, 114, 74),
+      content: Row(
+        children: [
+          const Icon(Icons.notifications_active, color: Colors.white),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              mensagem,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
 class AcessibilidadeController extends ChangeNotifier {
   final StorageService _storage = StorageService();
@@ -40,6 +73,9 @@ final acessibilidadeCtrl = AcessibilidadeController();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   await acessibilidadeCtrl.carregar();
   runApp(const ReservaLaboApp());
 }
@@ -55,6 +91,7 @@ class ReservaLaboApp extends StatelessWidget {
       listenable: acessibilidadeCtrl,
       builder: (context, _) {
         return MaterialApp(
+          scaffoldMessengerKey: rootScaffoldMessengerKey,
           title: 'Reserva de Laboratórios IFPA',
           debugShowCheckedModeBanner: false,
           themeMode: acessibilidadeCtrl.modoEscuro

@@ -1,16 +1,28 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import '../main.dart';
 import '../models/dia_semana.dart';
 import '../models/laboratorio.dart';
 import '../models/reserva.dart';
 import 'storage_service.dart';
 
-class ReservaService {
+class ReservaService extends ChangeNotifier {
   final StorageService _storage = StorageService();
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   List<Laboratorio> laboratorios = [];
   List<Reserva> reservas = [];
   List<String> horarios = [];
 
-  /// Map indexando cada laboratório pelo seu nome (requisito da rubrica)
+  StreamSubscription? _subLabs;
+  StreamSubscription? _subReservas;
+  StreamSubscription? _subHorarios;
+
+  bool _primeiraCargaReservas = true;
+  Set<String> _idsReservasConhecidas = {};
+  final Set<String> _idsCriadosLocalmente = {};
+
   Map<String, Laboratorio> get laboratoriosPorNome => {
         for (final lab in laboratorios) lab.nome: lab,
       };
@@ -59,6 +71,67 @@ class ReservaService {
       ];
       await _storage.salvarLaboratorios(laboratorios);
     }
+
+    _idsReservasConhecidas = reservas.map((r) => r.id).toSet();
+    _iniciarListenersTempoReal();
+  }
+
+  void _iniciarListenersTempoReal() {
+    _subLabs?.cancel();
+    _subReservas?.cancel();
+    _subHorarios?.cancel();
+
+    _subLabs = _db.collection('laboratorios').snapshots().listen((snap) {
+      laboratorios =
+          snap.docs.map((d) => Laboratorio.fromJson(d.data())).toList();
+      notifyListeners();
+    });
+
+    _subHorarios = _db
+        .collection('configuracoes')
+        .doc('horarios_matriz')
+        .snapshots()
+        .listen((doc) {
+      if (doc.exists && doc.data() != null) {
+        final lista = doc.data()!['lista'];
+        if (lista is List) {
+          horarios = lista.map((e) => e.toString()).toList();
+          notifyListeners();
+        }
+      }
+    });
+
+    _subReservas = _db.collection('reservas').snapshots().listen((snap) {
+      final novasReservas =
+          snap.docs.map((d) => Reserva.fromJson(d.data())).toList();
+
+      if (!_primeiraCargaReservas) {
+        for (final r in novasReservas) {
+          final ehNova = !_idsReservasConhecidas.contains(r.id);
+          final criadaAqui = _idsCriadosLocalmente.remove(r.id);
+
+          if (ehNova && !criadaAqui) {
+            final nomeLab = nomeLaboratorioPorId(r.laboratorioId);
+            notificarNovaAulaGlobal(
+              'Nova aula marcada: ${r.turma} • $nomeLab (${r.dia.sigla}, ${r.horario}) — Prof. ${r.docente}',
+            );
+          }
+        }
+      }
+
+      _primeiraCargaReservas = false;
+      _idsReservasConhecidas = novasReservas.map((r) => r.id).toSet();
+      reservas = novasReservas;
+      notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _subLabs?.cancel();
+    _subReservas?.cancel();
+    _subHorarios?.cancel();
+    super.dispose();
   }
 
   Future<bool> adicionarHorario(String novoHorario) async {
@@ -67,6 +140,7 @@ class ReservaService {
     horarios.add(limpo);
     horarios.sort();
     await _storage.salvarHorarios(horarios);
+    notifyListeners();
     return true;
   }
 
@@ -75,6 +149,7 @@ class ReservaService {
     reservas.removeWhere((r) => r.horario == horario);
     await _storage.salvarHorarios(horarios);
     await _storage.salvarReservas(reservas);
+    notifyListeners();
   }
 
   Future<void> salvarLaboratorio(Laboratorio lab) async {
@@ -85,6 +160,7 @@ class ReservaService {
       laboratorios.add(lab);
     }
     await _storage.salvarLaboratorios(laboratorios);
+    notifyListeners();
   }
 
   Future<void> removerLaboratorio(String labId) async {
@@ -92,6 +168,7 @@ class ReservaService {
     reservas.removeWhere((r) => r.laboratorioId == labId);
     await _storage.salvarLaboratorios(laboratorios);
     await _storage.salvarReservas(reservas);
+    notifyListeners();
   }
 
   bool temConflito({
@@ -107,22 +184,36 @@ class ReservaService {
     );
   }
 
-  Future<bool> adicionarReserva(Reserva nova) async {
+  Future<String?> adicionarReserva(Reserva nova) async {
+    final lab =
+        laboratorios.where((l) => l.id == nova.laboratorioId).firstOrNull;
+    if (lab == null) {
+      return 'Laboratório não encontrado.';
+    }
+    if (lab.status != 'Disponível') {
+      return 'Bloqueado: "${lab.nome}" está com status "${lab.status}".';
+    }
     if (temConflito(
       laboratorioId: nova.laboratorioId,
       dia: nova.dia,
       horario: nova.horario,
     )) {
-      return false;
+      return 'Conflito: este laboratório já está reservado neste dia e horário!';
     }
+
+    _idsCriadosLocalmente.add(nova.id);
+    _idsReservasConhecidas.add(nova.id);
     reservas.add(nova);
     await _storage.salvarReservas(reservas);
-    return true;
+    notifyListeners();
+    return null;
   }
 
   Future<void> cancelarReserva(String reservaId) async {
     reservas.removeWhere((r) => r.id == reservaId);
+    _idsReservasConhecidas.remove(reservaId);
     await _storage.salvarReservas(reservas);
+    notifyListeners();
   }
 
   Reserva? buscarReserva(String labId, DiaSemana dia, String horario) {

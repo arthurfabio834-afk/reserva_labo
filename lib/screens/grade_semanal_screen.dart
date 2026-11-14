@@ -23,7 +23,7 @@ class GradeSemanalScreen extends StatefulWidget {
 
 class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
   late final ReservaService _service;
-  Laboratorio? _labAtual;
+  String? _labAtualId;
   bool _carregando = true;
 
   @override
@@ -33,129 +33,182 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
     _iniciar();
   }
 
+  @override
+  void dispose() {
+    if (widget.serviceExistente == null) {
+      _service.dispose();
+    }
+    super.dispose();
+  }
+
   Future<void> _iniciar() async {
     if (widget.serviceExistente == null) {
       await _service.inicializar();
     }
+    if (!mounted) return;
     setState(() {
-      _labAtual = widget.laboratorioInicial ??
+      _labAtualId = widget.laboratorioInicial?.id ??
           (_service.laboratorios.isNotEmpty
-              ? _service.laboratorios.first
+              ? _service.laboratorios.first.id
               : null);
       _carregando = false;
     });
   }
 
-  Future<void> _abrirNovaReserva(DiaSemana dia, String horario) async {
-    if (_labAtual == null) return;
-    final atualizou = await Navigator.push<bool>(
+  Future<void> _abrirNovaReserva(
+      Laboratorio labAtual, DiaSemana dia, String horario) async {
+    if (labAtual.status != 'Disponível') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Não é possível reservar: "${labAtual.nome}" está "${labAtual.status}".',
+          ),
+          backgroundColor: Colors.orange.shade800,
+        ),
+      );
+      return;
+    }
+
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => NovaReservaScreen(
           service: _service,
-          laboratorioInicial: _labAtual,
+          laboratorioInicial: labAtual,
           diaInicial: dia,
           horarioInicial: horario,
         ),
       ),
     );
-    if (atualizou == true) setState(() {});
   }
 
   Future<void> _gerenciarHorarios() async {
     final inicioCtrl = TextEditingController();
     final fimCtrl = TextEditingController();
 
+    // Função auxiliar para formatar automaticamente "0800" para "08:00"
+    String formatarHorarioDigitado(String texto) {
+      final limpo = texto.replaceAll(RegExp(r'[^0-9]'), '');
+      if (limpo.length == 4) {
+        return '${limpo.substring(0, 2)}:${limpo.substring(2, 4)}';
+      }
+      return texto.trim();
+    }
+
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: const Text('Personalizar Horários da Matriz'),
-          content: SizedBox(
-            width: 340,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: inicioCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Início',
-                          hintText: '08:00',
-                          border: OutlineInputBorder(),
-                          isDense: true,
+          // Envolvido em SingleChildScrollView para evitar estouro de tela com o teclado
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 340,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: inicioCtrl,
+                          keyboardType: TextInputType.number,
+                          maxLength: 5,
+                          onChanged: (val) {
+                            if (val.length == 4 && !val.contains(':')) {
+                              inicioCtrl.text = formatarHorarioDigitado(val);
+                              inicioCtrl.selection = TextSelection.fromPosition(
+                                TextPosition(offset: inicioCtrl.text.length),
+                              );
+                            }
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Início',
+                            hintText: '08:00',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            counterText: '',
+                          ),
                         ),
                       ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6),
-                      child: Text('-'),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: fimCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Fim',
-                          hintText: '09:00',
-                          border: OutlineInputBorder(),
-                          isDense: true,
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('-'),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: fimCtrl,
+                          keyboardType: TextInputType.number,
+                          maxLength: 5,
+                          onChanged: (val) {
+                            if (val.length == 4 && !val.contains(':')) {
+                              fimCtrl.text = formatarHorarioDigitado(val);
+                              fimCtrl.selection = TextSelection.fromPosition(
+                                TextPosition(offset: fimCtrl.text.length),
+                              );
+                            }
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Fim',
+                            hintText: '09:00',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            counterText: '',
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton.filled(
-                      icon: const Icon(Icons.add),
-                      tooltip: 'Adicionar horário',
-                      onPressed: () async {
-                        final ini = inicioCtrl.text.trim();
-                        final fim = fimCtrl.text.trim();
-                        if (ini.isEmpty || fim.isEmpty) return;
-                        final faixa = '$ini - $fim';
-                        final ok = await _service.adicionarHorario(faixa);
-                        if (ok) {
-                          inicioCtrl.clear();
-                          fimCtrl.clear();
-                          setDialogState(() {});
-                          setState(() {});
-                        }
+                      const SizedBox(width: 6),
+                      IconButton.filled(
+                        icon: const Icon(Icons.add),
+                        tooltip: 'Adicionar horário',
+                        onPressed: () async {
+                          final ini = formatarHorarioDigitado(inicioCtrl.text);
+                          final fim = formatarHorarioDigitado(fimCtrl.text);
+                          if (ini.isEmpty || fim.isEmpty) return;
+                          final faixa = '$ini - $fim';
+                          final ok = await _service.adicionarHorario(faixa);
+                          if (ok) {
+                            inicioCtrl.clear();
+                            fimCtrl.clear();
+                            setDialogState(() {});
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _service.horarios.length,
+                      itemBuilder: (_, idx) {
+                        final h = _service.horarios[idx];
+                        return ListTile(
+                          dense: true,
+                          title: Text(h),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                color: Colors.red, size: 20),
+                            onPressed: () async {
+                              await _service.removerHorario(h);
+                              setDialogState(() {});
+                            },
+                          ),
+                        );
                       },
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Divider(),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 240),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _service.horarios.length,
-                    itemBuilder: (_, idx) {
-                      final h = _service.horarios[idx];
-                      return ListTile(
-                        dense: true,
-                        title: Text(h),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline,
-                              color: Colors.red, size: 20),
-                          onPressed: () async {
-                            await _service.removerHorario(h);
-                            setDialogState(() {});
-                            setState(() {});
-                          },
-                        ),
-                      );
-                    },
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           actions: [
-            FilledButton(
+            FilledButton.icon(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Concluir'),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Voltar'),
             ),
           ],
         ),
@@ -163,11 +216,11 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
     );
   }
 
-  Future<void> _aoTocarCelula(
-      DiaSemana dia, String horario, Reserva? reserva) async {
+  Future<void> _aoTocarCelula(Laboratorio labAtual, DiaSemana dia,
+      String horario, Reserva? reserva) async {
     if (reserva == null) {
       if (widget.isProfessor) {
-        await _abrirNovaReserva(dia, horario);
+        await _abrirNovaReserva(labAtual, dia, horario);
       }
       return;
     }
@@ -180,7 +233,7 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Laboratório: ${_labAtual?.nome ?? ''}'),
+            Text('Laboratório: ${labAtual.nome}'),
             const SizedBox(height: 6),
             Text('Turma: ${reserva.turma}',
                 style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -198,7 +251,6 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
               onPressed: () async {
                 await _service.cancelarReserva(reserva.id);
                 if (ctx.mounted) Navigator.pop(ctx);
-                setState(() {});
               },
             ),
           FilledButton(
@@ -232,10 +284,22 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
       ),
       body: _carregando
           ? const Center(child: CircularProgressIndicator())
-          : _labAtual == null
-              ? const Center(
-                  child: Text('Nenhum laboratório cadastrado ainda.'))
-              : Column(
+          : ListenableBuilder(
+              listenable: _service,
+              builder: (context, _) {
+                if (_service.laboratorios.isEmpty) {
+                  return const Center(
+                    child: Text('Nenhum laboratório cadastrado ainda.'),
+                  );
+                }
+
+                final labAtual = _service.laboratorios
+                        .where((l) => l.id == _labAtualId)
+                        .firstOrNull ??
+                    _service.laboratorios.first;
+                final indisponivel = labAtual.status != 'Disponível';
+
+                return Column(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -243,8 +307,8 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          DropdownButtonFormField<Laboratorio>(
-                            initialValue: _labAtual,
+                          DropdownButtonFormField<String>(
+                            initialValue: labAtual.id,
                             isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Laboratório selecionado',
@@ -253,7 +317,7 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
                             ),
                             items: _service.laboratorios
                                 .map((lab) => DropdownMenuItem(
-                                      value: lab,
+                                      value: lab.id,
                                       child: Text(
                                         '${lab.nome} (${lab.bloco})',
                                         overflow: TextOverflow.ellipsis,
@@ -262,14 +326,36 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
                                     ))
                                 .toList(),
                             onChanged: (val) {
-                              if (val != null) setState(() => _labAtual = val);
+                              if (val != null) {
+                                setState(() => _labAtualId = val);
+                              }
                             },
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            '${_labAtual!.capacidade} alunos • ${_labAtual!.quantidadePcs} PCs • Status: ${_labAtual!.status}',
+                            '${labAtual.capacidade} alunos • ${labAtual.quantidadePcs} PCs • Status: ${labAtual.status}',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
+                          if (indisponivel) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Aviso: Este laboratório está "${labAtual.status}" e não aceita novas reservas.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.orange.shade900,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -341,7 +427,7 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
                                           ...DiaSemana.values.map((dia) {
                                             final reserva =
                                                 _service.buscarReserva(
-                                              _labAtual!.id,
+                                              labAtual.id,
                                               dia,
                                               horario,
                                             );
@@ -349,7 +435,10 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
 
                                             return InkWell(
                                               onTap: () => _aoTocarCelula(
-                                                  dia, horario, reserva),
+                                                  labAtual,
+                                                  dia,
+                                                  horario,
+                                                  reserva),
                                               child: Container(
                                                 height: 68,
                                                 padding:
@@ -392,18 +481,22 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
                                                           ),
                                                         ],
                                                       )
-                                                    : (widget.isProfessor
+                                                    : (widget.isProfessor &&
+                                                            !indisponivel
                                                         ? Icon(
                                                             Icons.add,
                                                             size: 18,
                                                             color: colorScheme
                                                                 .outline,
                                                           )
-                                                        : const Text(
-                                                            '-',
-                                                            style: TextStyle(
+                                                        : Text(
+                                                            indisponivel
+                                                                ? 'Bloq.'
+                                                                : '-',
+                                                            style: const TextStyle(
                                                                 color: Colors
-                                                                    .grey),
+                                                                    .grey,
+                                                                fontSize: 12),
                                                           )),
                                               ),
                                             );
@@ -417,7 +510,9 @@ class _GradeSemanalScreenState extends State<GradeSemanalScreen> {
                             ),
                     ),
                   ],
-                ),
+                );
+              },
+            ),
     );
   }
 }

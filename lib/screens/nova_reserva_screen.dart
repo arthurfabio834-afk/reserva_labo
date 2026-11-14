@@ -35,8 +35,11 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
   @override
   void initState() {
     super.initState();
-    _labSelecionado =
-        widget.laboratorioInicial ?? widget.service.laboratorios.first;
+    _labSelecionado = widget.laboratorioInicial ??
+        widget.service.laboratorios
+            .where((l) => l.status == 'Disponível')
+            .firstOrNull ??
+        widget.service.laboratorios.first;
     _diaSelecionado = widget.diaInicial ?? DiaSemana.segunda;
     _horarioSelecionado =
         widget.horarioInicial ?? widget.service.horarios.first;
@@ -63,15 +66,14 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
       motivo: _motivoController.text.trim(),
     );
 
-    final sucesso = await widget.service.adicionarReserva(nova);
+    final erro = await widget.service.adicionarReserva(nova);
 
     if (!mounted) return;
 
-    if (!sucesso) {
+    if (erro != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Conflito: este laboratório já está reservado neste dia e horário!'),
+        SnackBar(
+          content: Text(erro),
           backgroundColor: Colors.red,
         ),
       );
@@ -89,6 +91,8 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final indisponivel = _labSelecionado.status != 'Disponível';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Agendar Horário'),
@@ -107,15 +111,28 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
                   border: OutlineInputBorder(),
                 ),
                 items: widget.service.laboratorios.map((lab) {
+                  final labelStatus =
+                      lab.status == 'Disponível' ? '' : ' [${lab.status}]';
                   return DropdownMenuItem(
                     value: lab,
-                    child: Text(lab.nome),
+                    child: Text('${lab.nome}$labelStatus'),
                   );
                 }).toList(),
                 onChanged: (val) {
                   if (val != null) setState(() => _labSelecionado = val);
                 },
               ),
+              if (indisponivel) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Atenção: Este laboratório está "${_labSelecionado.status}" e não permite novas reservas.',
+                  style: TextStyle(
+                    color: Colors.orange.shade900,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               DropdownButtonFormField<DiaSemana>(
                 initialValue: _diaSelecionado,
@@ -183,7 +200,7 @@ class _NovaReservaScreenState extends State<NovaReservaScreen> {
               ),
               const SizedBox(height: 20),
               FilledButton.icon(
-                onPressed: _salvar,
+                onPressed: indisponivel ? null : _salvar,
                 icon: const Icon(Icons.check),
                 label: const Text('Salvar na Matriz'),
               ),

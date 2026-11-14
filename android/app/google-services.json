@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "535784504043",
+    "project_id": "reserva-labo-ifpa",
+    "storage_bucket": "reserva-labo-ifpa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:535784504043:android:9488f1f814abff9da45cae",
+        "android_client_info": {
+          "package_name": "com.example.reserva_labo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_TjfaxaBsTLi3dgTlGsnGd-S9wD702ww"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

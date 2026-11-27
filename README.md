@@ -1,6 +1,6 @@
 # reserva_labo
 
-A new Flutter project.
+App de gestão de laboratórios do campus IFPA TUCURUí.
 
 ## Getting Started
 
